@@ -1,0 +1,6 @@
+./Dataset/val/0\P7171194.JPG,0
+./Dataset/val/0\P7171199.JPG,0
+./Dataset/val/0\P7171206.JPG,0
+./Dataset/val/1\P6011120.JPG,1
+./Dataset/val/1\P6081139.JPG,1
+./Dataset/val/1\P6081144.JPG,1
