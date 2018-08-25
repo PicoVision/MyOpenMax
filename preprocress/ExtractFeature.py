@@ -1,13 +1,9 @@
 import cv2
 import numpy as np
 import tensorflow as tf
-from alexnet import AlexNet
-from caffe_classes import class_names
-import scipy as sp
-from scipy.io import loadmat, savemat
 import os
 from scipy.io import savemat
-
+import argparse
 
 def oversample(images, crop_dims):
     """
@@ -82,115 +78,80 @@ TrainingFile = "../TrainingFile_detail.txt"
 ClassMapFile = "../Classmap.txt"
 
 
-tf.reset_default_graph()
+def main(args):
+    savePath_mat = args.SavePath
+    tf.reset_default_graph()
 
-imagenet_mean = np.array([104., 117., 124.], dtype=np.float32)
+    imagenet_mean = np.array([104., 117., 124.], dtype=np.float32)
 
-# Load Model
-if not os.path.exists("{:s}.meta".format(weightFile)):
-    print("Create Normal AlexNet Model!!")
-    # TF placeholder for graph input and output
-    x_input = tf.placeholder(tf.float32, [None, 227, 227, 3])
-    y_output = tf.placeholder(tf.float32, [None, 1000])
-    keep_prob = tf.placeholder(tf.float32)
+    # Load Model
+    if not os.path.exists("{:s}.meta".format(weightFile)):
+        print("Create Normal AlexNet Model!!")
+        assert False, "Can't found Alexnet Graph File"
+    else:
+        print("Alexnet Loading now!! ")
+        model = tf.train.import_meta_graph('{:s}.meta'.format(weightFile))
 
-    # Initialize model
-    model = AlexNet(x_input, keep_prob, 1000)
+    with tf.Session() as sess:
+        # Initialize all variables
 
-    # Link variable to model output
-    score = model.fc8
-    output_prob = tf.nn.softmax(score)
-else:
-    print("Alexnet Loading now!! ")
-    model = tf.train.import_meta_graph('{:s}.meta'.format(weightFile))
+        sess.run(tf.global_variables_initializer())
+        tensorA = [tensor.name for tensor in tf.get_default_graph().get_operations()]
+        # print(tensorA)
+        # if os.path.exists('{:s}'.format(weightFile)):
+        print("Loading... Weight...")
+        model.restore(sess, weightFile)
 
-with tf.Session() as sess:
-    # Initialize all variables
-
-    sess.run(tf.global_variables_initializer())
-    tensorA = [tensor.name for tensor in tf.get_default_graph().get_operations()]
-    # print(tensorA)
-    # if os.path.exists('{:s}'.format(weightFile)):
-    print("Loading... Weight...")
-    model.restore(sess, weightFile)
-
-    x_input  = tf.get_default_graph().get_tensor_by_name("Placeholder:0")
-    keep_prob = tf.get_default_graph().get_tensor_by_name("Placeholder_2:0")
-    f8= tf.get_default_graph().get_tensor_by_name("fc8/fc8:0")
-    f7 = tf.get_default_graph().get_tensor_by_name("fc7/fc7:0")
-    prob = tf.nn.softmax(f8)
-    score = tf.reduce_mean(prob,axis=0)
+        x_input  = tf.get_default_graph().get_tensor_by_name("Placeholder:0")
+        keep_prob = tf.get_default_graph().get_tensor_by_name("Placeholder_2:0")
+        f8= tf.get_default_graph().get_tensor_by_name("fc8/fc8:0")
+        f7 = tf.get_default_graph().get_tensor_by_name("fc7/fc7:0")
+        prob = tf.nn.softmax(f8)
+        score = tf.reduce_mean(prob,axis=0)
 
 
-    TrainFiles = read_train_detail(TrainingFile)
-    for trainFile in TrainFiles:
-        print("{:s} Class {:s}".format(trainFile[0],trainFile[1]))
-        imageFile = trainFile[0]
-        className = trainFile[1]
-        #### Create Directory File
-        if not os.path.exists("../FeatureData/"):
-            os.mkdir("../FeatureData/")
-        if not os.path.exists("../FeatureData/{:s}".format(className)):
-            os.mkdir("../FeatureData/{:s}".format(className))
+        TrainFiles = read_train_detail(TrainingFile)
+        for trainFile in TrainFiles:
+            print("{:s} Class {:s}".format(trainFile[0],trainFile[1]))
+            imageFile = trainFile[0]
+            className = trainFile[1]
+            #### Create Directory File
+            if not os.path.exists(savePath_mat):
+                os.mkdir(savePath_mat)
+            if not os.path.exists("{:s}/{:s}".format(savePath_mat,className)):
+                os.mkdir("{:s}/{:s}".format(savePath_mat,className))
 
-        fileNameFeature = "../FeatureData/{:s}/{:s}.mat".format(className,os.path.basename(imageFile).split(".")[0])
-        # print(fileNameFeature)
-        # print("------Predict with Open CV--------")
-        img = cv2.imread(imageFile)
-        img = cv2.resize(img.astype(np.float32),(256,256))
-        img = img - imagenet_mean
-        img = img.reshape(-1,256,256,3)
-        img_oversampling = oversample(img, (227, 227))
+            fileNameFeature = "{:s}/{:s}/{:s}.mat".format(savePath_mat,className,os.path.basename(imageFile).split(".")[0])
+            # print(fileNameFeature)
+            # print("------Predict with Open CV--------")
+            img = cv2.imread(imageFile)
+            img = cv2.resize(img.astype(np.float32),(256,256))
+            img = img - imagenet_mean
+            img = img.reshape(-1,256,256,3)
+            img_oversampling = oversample(img, (227, 227))
 
-        # Run the session and calculate the class probability
-        # probs = sess.run(softmax, feed_dict={x: img_oversampling, keep_prob: 1})
+            # Run the session and calculate the class probability
+            # probs = sess.run(softmax, feed_dict={x: img_oversampling, keep_prob: 1})
 
-        feature_dict = {}
-        feature_dict['IMG_NAME'] = "./FeatureData/{:s}/{:s}".format(className,os.path.basename(imageFile))
-        pFc7,pFc8,pProb,pScore = sess.run([f7,f8,prob,score], feed_dict={x_input: img_oversampling, keep_prob: 1})
-        feature_dict['fc7'] = np.asarray(pFc7)
-        feature_dict['fc8'] = np.asarray(pFc8)
-        feature_dict['prob'] = np.asarray(pProb)
-        feature_dict['scores'] = np.asarray(pScore)
-        savemat(fileNameFeature, feature_dict)
-
-
-
-# with tf.Session() as sess:
-#     # Initialize all variables
-#     sess.run(tf.global_variables_initializer())
-#     # Load the pretrained weights into the model
-#     loadCheckpointWeight(session=sess,weightFile='../BestWeight/weight.data')
-#     image2 = sess.run(img_centered)
-#     image2 = image2.reshape(1,227,227,3)
-#     probs = sess.run(prob_class, feed_dict={x: image2, keep_prob: 1})
-#
-#     # Get the class name of the class with the highest probability
-#     class_name = class_names[np.argmax(probs)]
-#     print(np.argmax(probs, axis=1))
-#     print(class_name)
-#
-#
-#     print("------Predict with Open CV--------")
-#     img = cv2.imread("E:/Neural_playground/MyopenMax/Dataset/n01440764/n01440764_10040.JPEG")
-#     img = cv2.resize(img,(227,227))
-#     img = img - imagenet_mean
-#     img = img.reshape(1,227,227,3)
-#
-#     probs = sess.run(prob_class, feed_dict={x: img, keep_prob: 1})
-#
-#     feature_dict = {}
-#     feature_dict['IMG_NAME'] = path.join(path.dirname(imgname), path.basename(imgname))
-#     feature_dict['fc7'] = sp.asarray(classifier.blobs['fc7'].data.squeeze(axis=(2, 3)))
-#     feature_dict['fc8'] = sp.asarray(classifier.blobs['fc8'].data.squeeze(axis=(2, 3)))
-#     feature_dict['prob'] = sp.asarray(classifier.blobs['prob'].data.squeeze(axis=(2, 3)))
-#     feature_dict['scores'] = sp.asarray(scores)
-#     savemat(outfname, feature_dict)
-#
-#
-#
-#
-#
-#
+            feature_dict = {}
+            feature_dict['IMG_NAME'] = "{:s}/{:s}/{:s}".format(savePath_mat,className,os.path.basename(imageFile))
+            pFc7,pFc8,pProb,pScore = sess.run([f7,f8,prob,score], feed_dict={x_input: img_oversampling, keep_prob: 1})
+            feature_dict['fc7'] = np.asarray(pFc7)
+            feature_dict['fc8'] = np.asarray(pFc8)
+            feature_dict['prob'] = np.asarray(pProb)
+            feature_dict['scores'] = np.asarray(pScore)
+            savemat(fileNameFeature, feature_dict)
 
 
+if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser()
+    # Required arguments: input and output files.
+    parser.add_argument(
+        "--SavePath",
+        help="Path to save matFile.",
+        default="./FeatureData/"
+    )
+
+    args = parser.parse_args()
+    main(args)
