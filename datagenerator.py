@@ -20,8 +20,8 @@ class ImageDataGenerator(object):
     Requires Tensorflow >= version 1.12rc0
     """
 
-    def __init__(self, txt_file, mode, batch_size, num_classes, shuffle=True,
-                 buffer_size=1000):
+    def __init__(self, mode, batch_size, num_classes, class_file, txt_file="", img_paths="",labels="",shuffle=False,
+                 buffer_size=20):
         """Create a new ImageDataGenerator.
 
         Recieves a path string to a text file, which consists of many lines,
@@ -45,11 +45,26 @@ class ImageDataGenerator(object):
             ValueError: If an invalid mode is passed.
 
         """
-        self.txt_file = txt_file
         self.num_classes = num_classes
 
+        # convert name class to label
+        self.class_file = class_file
+        self._classMaping()
+
         # retrieve the data from the text file
-        self._read_txt_file()
+
+
+        self.txt_file = txt_file
+        if(self.txt_file != ""):
+            self._read_txt_file()
+        else:
+            # assert(img_paths=="" or labels ==""," img_pahts or labels is null")
+            self._setDataset(img_paths=img_paths,labels=labels)
+
+        #remap label class
+        self._remapToLabel()
+
+        # print(self.labels)
 
         # number of samples in the dataset
         self.data_size = len(self.labels)
@@ -75,26 +90,25 @@ class ImageDataGenerator(object):
 
 
         if mode == 'training':
-            data = data.map(self._parse_function_train, num_parallel_calls=8)
-
-                      # output_buffer_size=100*batch_size)
-
-        elif mode == 'inference':
-            aa = 10
-            # data = data.map(self._parse_function_inference, num_threads=8,
-            #           output_buffer_size=100*batch_size)
-
+            # data = data.map(map_func=self._parse_function_train(), num_parallel_calls=8)
+            # data = data.batch(batch_size=buffer_size)
+            data = data.apply(tf.contrib.data.map_and_batch(
+                map_func=self._parse_function_train,batch_size=batch_size,num_parallel_batches=4))
+            data = data.prefetch(buffer_size=buffer_size)
+        elif mode == "validation":
+            data = data.apply(tf.contrib.data.map_and_batch(
+                map_func=self._parse_function_inference, batch_size=batch_size, num_parallel_batches=4))
+            data = data.prefetch(buffer_size=buffer_size)
         else:
             raise ValueError("Invalid mode '%s'." % (mode))
 
-        # shuffle the first `buffer_size` elements of the dataset
-        if shuffle:
-            data = data.shuffle(buffer_size=buffer_size)
-
-        # create a new dataset with batches of images
-        data = data.batch(batch_size)
-
         self.data = data
+
+    def _remapToLabel(self):
+        labelInt = []
+        for idx in range(len(self.labels)):
+            labelInt.append(int(self.class_map[self.labels[idx]]))
+        self.labels = labelInt
 
     def _read_txt_file(self):
         """Read the content of the text file and store it into lists."""
@@ -106,6 +120,21 @@ class ImageDataGenerator(object):
                 items = line.split(',')
                 self.img_paths.append(items[0])
                 self.labels.append(int(items[1]))
+
+    def _setDataset(self,img_paths,labels):
+        self.img_paths = img_paths
+        self.labels = labels
+
+    def _classMaping(self):
+        self.class_map  = {}
+        with open(self.class_file, 'r') as cf:
+            line = cf.readline()
+            while line:
+                items = line.split(',')
+                # print(items)
+                self.class_map[items[0]] = str(items[1]).strip("\n")
+                line = cf.readline()
+        # print(self.class_map)
 
     def _shuffle_lists(self):
         """Conjoined shuffling of the list of paths and labels."""
@@ -127,15 +156,9 @@ class ImageDataGenerator(object):
         img_string = tf.read_file(filename)
         img_decoded = tf.image.decode_png(img_string, channels=3)
         img_resized = tf.image.resize_images(img_decoded, [227, 227])
-        """
-        Dataaugmentation comes here.
-        """
-        img_centered = tf.subtract(img_resized, IMAGENET_MEAN)
+        img_centered = tf.subtract(img_resized, IMAGENET_MEAN)[:, :, ::-1]
 
-        # RGB -> BGR
-        img_bgr = img_centered[:, :, ::-1]
-
-        return img_bgr, one_hot
+        return img_centered, one_hot
 
     def _parse_function_inference(self, filename, label):
         """Input parser for samples of the validation/test set."""
@@ -146,9 +169,6 @@ class ImageDataGenerator(object):
         img_string = tf.read_file(filename)
         img_decoded = tf.image.decode_png(img_string, channels=3)
         img_resized = tf.image.resize_images(img_decoded, [227, 227])
-        img_centered = tf.subtract(img_resized, IMAGENET_MEAN)
+        img_centered = tf.subtract(img_resized, IMAGENET_MEAN)[:, :, ::-1]
 
-        # RGB -> BGR
-        img_bgr = img_centered[:, :, ::-1]
-
-        return img_bgr, one_hot
+        return img_centered, one_hot
