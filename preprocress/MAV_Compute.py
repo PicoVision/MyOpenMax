@@ -1,5 +1,3 @@
-
-
 import os, sys
 import glob
 import time
@@ -60,7 +58,9 @@ def compute_mean_vector(category_name,featureset, labellist, layer = 'fc8'):
     # this vector contains mean computed over correct classifications
     # for each channel separately
     channel_mean_vec = sp.asarray(channel_mean_vec)
-    savemat('%s.mat' %category_name, {'%s'%category_name: channel_mean_vec})
+    if not os.path.exists("./mean/"):
+        os.mkdir("mean")
+    savemat('./mean/%s.mat' %category_name, {'%s'%category_name: channel_mean_vec})
 
 def multiproc_compute_mean_vector(params):
     return compute_mean_vector(*params)
@@ -69,10 +69,18 @@ def main(args):
 
     category_name = args.category
     featureset = args.featureset
-    st = time.time()
     labellist = getlabellist('../synset_words_caffe_ILSVRC12.txt')
-    compute_mean_vector(category_name,featureset, labellist)
-    print("Total time %s secs" %(time.time() - st))
+    if(args.all):
+        dirs = os.listdir(featureset)
+        for category_name in dirs:
+            st = time.time()
+            compute_mean_vector(category_name,featureset, labellist)
+            print("Total time %s secs" %(time.time() - st))
+    else:
+        st = time.time()
+        compute_mean_vector(category_name, featureset, labellist)
+        print("Total time %s secs" % (time.time() - st))
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -80,12 +88,15 @@ if __name__ == "__main__":
     parser.add_argument(
         "--featureset",
         help="Path to save matFile.",
-        default="../FeatureData/"
+        default="../FeatureData/",required=True
     )
     parser.add_argument("--category",
                         help="usage: python MAV_Compute.py <synset_id (e.g. n01440764)>",
-                        default="n01440764")
+                        default="n01440764",required=True)
 
+    parser.add_argument("--all",
+                        help="get all class in path",
+                        action='store_true')
     args = parser.parse_args()
     main(args)
 
