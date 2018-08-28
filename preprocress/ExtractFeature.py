@@ -55,6 +55,7 @@ def getClassMapDict(ClassFile):
         while line:
             classname = line.split(',')
             classDict[classname[1]] = classname[0]
+            line = cF.readline()
     return classDict
 
 def read_train_detail(detailFile,shuffle=False):
@@ -107,7 +108,7 @@ def main(args):
         f8= tf.get_default_graph().get_tensor_by_name("fc8/fc8:0")
         f7 = tf.get_default_graph().get_tensor_by_name("fc7/fc7:0")
         prob = tf.nn.softmax(f8)
-        score = tf.reduce_mean(prob,axis=0)
+        score = tf.reduce_mean(f7,axis=0)
 
 
         TrainFiles = read_train_detail(TrainingFile)
