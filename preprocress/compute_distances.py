@@ -7,7 +7,7 @@ import os.path as path
 import scipy.spatial.distance as spd
 from scipy.io import loadmat, savemat
 import argparse
-featurefilepath = '../data/train_features/'
+import multiprocessing as mp
 
 #------------------------------------------------------------------------------------------
 def getlabellist(fname):
@@ -64,8 +64,8 @@ def compute_channel_distances(mean_train_channel_vector, features, category_name
     return channel_distances
     
 #------------------------------------------------------------------------------------------
-def compute_distances(mav_fname, labellist, category_name, 
-                      featurefilepath, layer = 'fc8'):
+def compute_distances(meanPath, categoryList,
+                      featurefilepath_list, layer = 'fc8'):
     """
     Input:
     -------
@@ -74,24 +74,34 @@ def compute_distances(mav_fname, labellist, category_name,
     category_name : synset_id
 
     """
-    
-    
-    mean_feature_vec = loadmat(mav_fname)[category_name]
-    print('%s/%s/*.mat' %(featurefilepath, category_name))
-    featurefile_list = glob.glob('%s/*.mat' %featurefilepath)
+    for category_name in categoryList:
+        mav_fname = "{}/{}.mat".format(meanPath, category_name)
+        featurefilepath = "{}/{}".format(featurefilepath_list,category_name)
+        labellist = getlabellist('../synset_words_caffe_ILSVRC12.txt')
 
-    correct_features = []
-    for featurefile in featurefile_list:
-        try:
-            img_arr = loadmat(featurefile)
-            predicted_category = labellist[img_arr['scores'].argmax()]
-            if predicted_category == category_name:
-                correct_features += [img_arr[layer]]
-        except TypeError:
-            continue
 
-    distance_distribution = compute_channel_distances(mean_feature_vec, correct_features, category_name)
-    return distance_distribution
+
+        mean_feature_vec = loadmat(mav_fname)[category_name]
+        # print('%s/%s/*.mat' %(featurefilepath, category_name))
+        featurefile_list = glob.glob('%s/*.mat' %featurefilepath)
+
+        correct_features = []
+        for featurefile in featurefile_list:
+            # print(idx)
+            # if idx > 10 :
+            #     break
+            try:
+                img_arr = loadmat(featurefile)
+                predicted_category = labellist[img_arr['scores'].argmax()]
+                if predicted_category == category_name:
+                    correct_features += [img_arr[layer]]
+            except TypeError:
+                continue
+
+        distance_distribution = compute_channel_distances(mean_feature_vec, correct_features, category_name)
+        if not os.path.exists("./distance/"):
+            os.mkdir("distance")
+        savemat('./distance/{}_distances.mat'.format(category_name), distance_distribution)
 
 #------------------------------------------------------------------------------------------
 def main():
@@ -113,21 +123,24 @@ def main():
 
     parser.add_argument("--all",
                         help="calculate all category name in feature path",
-                        default="store_true")
+                        action="store_true")
     args = parser.parse_args()
+
+    meanPath = args.meanPath
+    feature_path = args.featurePath
+
     if args.all :
         listcategory = os.listdir(args.featurePath)
-    else :
-        listcategory = [args.category]
-    for category_name in listcategory:
-        mav_fname = "{}/{}.mat".format(args.meanPath,category_name)
-        feature_path = "{}".format(args.featurePath)
-        labellist = getlabellist('../synset_words_caffe_ILSVRC12.txt')
+        for idx in range(30):
+            selected = [listcategory[i] for i in range(idx, 1000, 30)]
+            # compute_distances(meanPath,feature_path, selected)
+            p = mp.Process(target=compute_distances, args=(meanPath,selected,feature_path, ))
+            p.start()
+            print("Finished {}".format(selected))
 
-        distance_distribution = compute_distances(mav_fname, labellist, category_name, feature_path)
-        if not os.path.exists("./distance/"):
-            os.mkdir("distance")
-        savemat('./distance/{}/%s_distances.mat'.format(category_name), distance_distribution)
+    else :
+        listcategory = os.listdir(args.featurePath)
+        compute_distances(meanPath,  listcategory,feature_path)
 
 if __name__ == "__main__":
     #print("python compute_distances.py n01440764 ../data/mean_files/n01440764.mat ../data/train_features/n01440764/")

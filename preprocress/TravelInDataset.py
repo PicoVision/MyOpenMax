@@ -3,7 +3,7 @@ import os
 import cv2
 import numpy as np
 import random
-
+import argparse
 def travelInpath(pathTravel,trainingfile,validationfile,classMapFile,numsplit,shuffle = False):
 
     classFile = {}
@@ -26,10 +26,12 @@ def travelInpath(pathTravel,trainingfile,validationfile,classMapFile,numsplit,sh
                 all_file_infolder.append(datasetdetail)
             if shuffle:
                 random.shuffle(all_file_infolder)
-
-            traindetail =all_file_infolder[:-numsplit]
-            valdetail = all_file_infolder[-numsplit:]
-
+            if numsplit > 0:
+                traindetail =all_file_infolder[:-numsplit]
+                valdetail = all_file_infolder[-numsplit:]
+            else:
+                traindetail = all_file_infolder
+                valdetail = []
             for i in traindetail:
                 tnFile.write(i)
                 tnFile.write("\n")
@@ -61,13 +63,34 @@ def read_train_detail(detailFile,shuffle=True):
     return img_paths,labels
 
 if __name__ == "__main__":
+    #for example TravelInDaset.py --datasetPath ../HackedImage --trainingfile Hacked_detail.txt
+    # for example TravelInDaset.py --datasetPath F:/LargeDataset/2012/Data
+    #  --trainingfile TrainingFile_detail.txt  --validationfile ValidationFile_detail.txt
+    # --spiltnum 50
 
-    AllDataset = "../AllDataset_Detail.txt"
-    TrainingFile = "../TrainingFile_detail.txt"
-    ValidationFile = "../ValidationFile_detail.txt"
-    ClassmapFile = "../Classmap.txt"
-    DatasetPath = "../Dataset/"
-    numsplit = 5 #perclass
+    paser = argparse.ArgumentParser()
+    paser.add_argument("--datasetPath",
+                       default="../Dataset",
+                       help="select Dataset path")
+    paser.add_argument("--datasetfile",default="AllDataset_Detail.txt",
+                       help="Give the dataset file name")
+    paser.add_argument("--trainingfile",
+                       default="TrainingFile_detail.txt",
+                       help="Give the training file name")
+    paser.add_argument("--validationfile",
+                       default="ValidationFile_detail.txt",
+                       help="Give the Validation file name")
+    paser.add_argument("--spiltnum"                      ,
+                       default=-1,
+                       help="Give the total number that split from trining to validation per class")
+    args = paser.parse_args()
+
+    ClassmapFile = "./Classmap.txt"
+    AllDataset = args.datasetfile
+    TrainingFile = args.trainingfile
+    ValidationFile = args.validationfile
+    DatasetPath = args.datasetPath
+    numsplit = args.spiltnum
     travelInpath(DatasetPath,TrainingFile,ValidationFile,ClassmapFile,numsplit)
 
     print("Finished Preprocess Splited Training and Validation Dataset")

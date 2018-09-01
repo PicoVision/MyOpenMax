@@ -74,13 +74,13 @@ def read_train_detail(detailFile,shuffle=False):
 
 
 
-weightFile = "../BestWeight/weight"
-TrainingFile = "../TrainingFile_detail.txt"
-ClassMapFile = "../Classmap.txt"
-
 
 def main(args):
     savePath_mat = args.SavePath
+    weightFile = args.weightFile
+    TrainingFile = args.Filedetail
+    ClassMapFile =args.classmap
+
     tf.reset_default_graph()
 
     imagenet_mean = np.array([104., 117., 124.], dtype=np.float32)
@@ -146,6 +146,10 @@ def main(args):
 
 if __name__ == "__main__":
 
+    #for example ExtractFeature.py --SavePath ../FeatureData/ --weightFile ../BestWeight/weight
+    #--Filedetail ../TrainingFile_detail.txt  --classmap ../Classmap.txt
+
+    #for example ExtractFeature.py --SavePath ../FeatureHackImage --weightFile ../BestWeight/weight --Filedetail ../Hacked_detail.txt --classmap ../HackImageMap.txt
     parser = argparse.ArgumentParser()
     # Required arguments: input and output files.
     parser.add_argument(
@@ -154,5 +158,22 @@ if __name__ == "__main__":
         default="./FeatureData/"
     )
 
+    parser.add_argument("--weightFile",
+                        help="weight File",
+                        default="../BestWeight/weight")
+
+    parser.add_argument("--Filedetail",
+                        help="File detail that have path and label of image",
+                        default="../TrainingFile_detail.txt")
+
+    parser.add_argument("--classmap",
+                        help="FileClass mapping",
+                        default="../Classmap.txt")
+
     args = parser.parse_args()
+    # weightFile = "../BestWeight/weight"
+    # TrainingFile = "../TrainingFile_detail.txt"
+    # ClassMapFile = "../Classmap.txt"
+
+
     main(args)
