@@ -81,6 +81,13 @@ def getlabellist(synsetfname):
     return labellist
 
 
+def classDictMap(synsetfname):
+    classDict = {}
+    categorylist = open(synsetfname, 'r').readlines()
+    for idx, category in enumerate(categorylist):
+        classDict[category.split(' ')[0]] = idx
+    return classDict
+
 def compute_distance(query_channel, channel, mean_vec, distance_type = 'eucos'):
     """ Compute the specified distance type between chanels of mean vector and query image.
     In caffe library, FC8 layer consists of 10 channels. Here, we compute distance
