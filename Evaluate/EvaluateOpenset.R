@@ -1,5 +1,7 @@
-  library(data.table)
-  
+rm(list=ls())  
+library(data.table)
+library(xlsx)
+library(ggplot2)
   
   #This function is calculate AP per class
   #input is Recall and Precision
@@ -35,12 +37,14 @@
   Data_OpenSet = Data_OpenSet[1:15000,]    #Force select 15k dataset
   
   #merge Closeset and Openset
-  Data_all  <- rbind(Data_CloseSet, Data_OpenSet) 
-  
+  Data_all  = rbind(Data_CloseSet, Data_OpenSet) 
+  Data_result = data.frame()
+  Data_mAP = data.frame()
   # Threshold Loop
   for(threshold in seq(0,0.9,by=0.1)){
     
     Data_select = copy(Data_all)
+    
     #cutoff by threshold if some Probability prediction is lower than threshold then set to 1000 that is unseen class 
     Data_select[which(Data_all$Prob_Of_Softmax<threshold),"SoftMaxPredict"] = 1000
     
@@ -92,10 +96,20 @@
       result = VOCMap(mRec,mPre)
       result_detail = result$data
       result_detail["class"] = i
-      
+      result_detail["threshold"] = threshold
       AP = AP + result$ap
       Data_result = rbind.data.frame(Data_result,result_detail)
     }
     print(AP/1001)
+    Data_mAP = rbind(Data_mAP,data.frame("mAP"=AP/1001,"Threshold"=threshold))
   }
+  write.csv(Data_mAP,"result_Map.csv")
+  write.csv(Data_result,"result_AP.csv")
+  #read Data section
+  Data_mAP = read.csv("result_Map.csv")
+  Data_result_AP = read.csv("result_AP.csv")
+  p <- ggplot(Data_result_AP, aes(x = Mrec,y=MPre,group=class))  
+  p  
   
+  
+    

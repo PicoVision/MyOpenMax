@@ -175,5 +175,4 @@ if __name__ == "__main__":
     # TrainingFile = "../TrainingFile_detail.txt"
     # ClassMapFile = "../Classmap.txt"
 
-
     main(args)
