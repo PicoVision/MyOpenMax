@@ -6,7 +6,7 @@ import math
 import random
 from datetime import datetime
 from alexnet import AlexNet
-from datagenerator_opencv import ImageDataGenerator
+from datagenerator import ImageDataGenerator
 from tensorflow.data import Iterator
 from tqdm import tqdm
 
@@ -42,8 +42,8 @@ checkpoint_path = "./ckp/"
 learning_rate = 0.00001
 dropout_rate = 0.5
 num_classes = 1000
-batch_size = 10
-num_epochs = 100
+batch_size = 20
+num_epochs = 10
 display_step = 20  #check acc per epoach
 train_layers = ['fc8', 'fc7', 'fc6']
 
@@ -60,16 +60,16 @@ with tf.device('/cpu:0'):
                                  batch_size=batch_size,
                                  num_classes=num_classes,
                                  class_file=class_file,
-                                 shuffle=False,
+                                 shuffle=True,
                                  img_paths=train_img_paths,
                                  labels=train_labels)
-    # val_data = ImageDataGenerator(mode='validation',
-    #                              batch_size=batch_size,
-    #                              num_classes=num_classes,
-    #                              class_file= class_file,
-    #                              shuffle=False,
-    #                              img_paths=validate_img_paths,
-    #                              labels=validate_labels)
+    val_data = ImageDataGenerator(mode='validation',
+                                 batch_size=batch_size,
+                                 num_classes=num_classes,
+                                 class_file= class_file,
+                                 shuffle=False,
+                                 img_paths=validate_img_paths,
+                                 labels=validate_labels)
 
     # create an reinitializable iterator given the dataset structure
     iterator = Iterator.from_structure(tr_data.data.output_types,
@@ -79,13 +79,13 @@ with tf.device('/cpu:0'):
 
 # Ops for initializing the two different iterators
 training_init_op = iterator.make_initializer(tr_data.data)
-# validation_init_op = iterator.make_initializer(val_data.data)
+validation_init_op = iterator.make_initializer(val_data.data)
 
 
 
 # Get the number of training/validation steps per epoch
 train_batches_per_epoch = int(np.floor(tr_data.data_size/batch_size))
-# val_batches_per_epoch = int(np.floor(val_data.data_size/batch_size))
+val_batches_per_epoch = int(np.floor(val_data.data_size/batch_size))
 
 
 
@@ -117,7 +117,7 @@ with tf.name_scope("train"):
     gradients = list(zip(gradients, var_list))
 
     # Create optimizer and apply gradient descent to the trainable variables
-    optimizer = tf.train.AdamOptimizer(learning_rate)
+    optimizer = tf.train.GradientDescentOptimizer(learning_rate)
     train_op = optimizer.apply_gradients(grads_and_vars=gradients)
 
 
@@ -185,36 +185,36 @@ with tf.Session() as sess:
                 writer.add_summary(s, epoch*train_batches_per_epoch + step)
                 #print("Accuracy at steps {} is {:f}".format((epoch*train_batches_per_epoch + step),acc_data))
 
-        # # Validate the model on the entire validation set
-        # print("{} Start validation".format(datetime.now()))
-        # sess.run(validation_init_op)
-        # test_acc = 0.
-        # test_count = 0
-        # for _ in tqdm(range(val_batches_per_epoch)):
-        #
-        #     img_batch, label_batch = sess.run(next_batch)
-        #     acc = sess.run(accuracy, feed_dict={x: img_batch,
-        #                                         y: label_batch,
-        #                                         keep_prob: 1.})
-        #     test_acc += acc
-        #     test_count += 1
-        # test_acc /= test_count
-        # print("{} Validation Accuracy = {:.4f}".format(datetime.now(), test_acc))
-        #
-        # print("Checking improving Accuracy...")
-        # if test_acc > best_acc:
-        #     print("Accuracy improve from {:.4f} to {:.4f}".format(best_acc,test_acc))
-        #     print("Saving best weights ...")
-        #     save_path = saver.save(sess, "./BestWeight/weight")
-        #     best_acc = test_acc
-        # else:
-        #     print("Accuracy not improve")
-        #
-        # print("{} Saving checkpoint of model...".format(datetime.now()))
-        # # save checkpoint of the model
-        # checkpoint_name = os.path.join(checkpoint_path,
-        #                                'model_epoch'+str(epoch+1)+'.ckpt')
-        # save_path = saver.save(sess, checkpoint_name)
-        #
-        # print("{} Model checkpoint saved at {}".format(datetime.now(),
-        #                                                checkpoint_name))
+        # Validate the model on the entire validation set
+        print("{} Start validation".format(datetime.now()))
+        sess.run(validation_init_op)
+        test_acc = 0.
+        test_count = 0
+        for _ in tqdm(range(val_batches_per_epoch)):
+
+            img_batch, label_batch = sess.run(next_batch)
+            acc = sess.run(accuracy, feed_dict={x: img_batch,
+                                                y: label_batch,
+                                                keep_prob: 1.})
+            test_acc += acc
+            test_count += 1
+        test_acc /= test_count
+        print("{} Validation Accuracy = {:.4f}".format(datetime.now(), test_acc))
+
+        print("Checking improving Accuracy...")
+        if test_acc > best_acc:
+            print("Accuracy improve from {:.4f} to {:.4f}".format(best_acc,test_acc))
+            print("Saving best weights ...")
+            save_path = saver.save(sess, "./BestWeight/weight")
+            best_acc = test_acc
+        else:
+            print("Accuracy not improve")
+
+        print("{} Saving checkpoint of model...".format(datetime.now()))
+        # save checkpoint of the model
+        checkpoint_name = os.path.join(checkpoint_path,
+                                       'model_epoch'+str(epoch+1)+'.ckpt')
+        save_path = saver.save(sess, checkpoint_name)
+
+        print("{} Model checkpoint saved at {}".format(datetime.now(),
+                                                       checkpoint_name))
