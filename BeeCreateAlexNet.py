@@ -156,7 +156,9 @@ with tf.Session() as sess:
     model.load_initial_weights(sess)
 
     print("{} Start training...".format(datetime.now()))
+    save_path = saver.save(sess, "./Original/weight")
 
+    
     best_acc = 0
     # Loop over number of epochs
     for epoch in range(num_epochs):
