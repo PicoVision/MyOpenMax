@@ -31,8 +31,13 @@ library(ggplot2)
   }
   
   
-  Data_CloseSet <- read.csv("../Result_CloseSet.txt",header = TRUE)
-  Data_OpenSet <- read.csv("../Result_OpenSet.txt",header = TRUE)
+  Data_CloseSet <- read.csv("./ResultCloseSet.txt",header = TRUE)
+  Data_OpenSet <- read.csv("./ResultOpenSet.txt",header = TRUE)
+  
+  #Evaluate With ACC
+  cat("Evaluate with ACC")
+  length(which(Data_CloseSet$GT_Index == Data_CloseSet$SoftMaxPredict))/50000
+  
   
   Data_OpenSet = Data_OpenSet[1:15000,]    #Force select 15k dataset
   
@@ -41,7 +46,7 @@ library(ggplot2)
   Data_result = data.frame()
   Data_mAP = data.frame()
   # Threshold Loop
-  for(threshold in seq(0,0.9,by=0.1)){
+  for(threshold in seq(0,0.4,by=0.05)){
     
     Data_select = copy(Data_all)
     
@@ -99,23 +104,28 @@ library(ggplot2)
       result_detail["threshold"] = threshold
       
       #show example plot
-      plot(mRec,mPre,type="l",lty=2)
-      lines(result_detail$Mrec,result_detail$MPre)
+      #plot(mRec,mPre,type="l",lty=2)
+      #lines(result_detail$Mrec,result_detail$MPre)
       
       
       AP = AP + result$ap
       Data_result = rbind.data.frame(Data_result,result_detail)
-      cat("class = ",i," AP= ",result$ap, "map = ",AP/(i+1),"\n")
+      #cat("class = ",i," AP= ",result$ap, "map = ",AP/(i+1),"\n")
     }
     print(AP/1001)
     Data_mAP = rbind(Data_mAP,data.frame("mAP"=AP/1001,"Threshold"=threshold))
   }
-  write.csv(Data_mAP,"result_Map.csv")
-  write.csv(Data_result,"result_AP.csv")
+  write.csv(Data_mAP,"result_SMap.csv")
+  write.csv(Data_result,"result_SAP.csv")
   #read Data section
-  Data_mAP = read.csv("result_Map.csv")
-  Data_result_AP = read.csv("result_AP.csv")
-  p <- ggplot(Data_result_AP, aes(x = Mrec,y=MPre,group=class))  
+  Data_mAP = read.csv("result_SMap.csv")
+  Data_result_AP = read.csv("result_SAP.csv")
+  p <- ggplot(Data_result_AP[0:5000,], aes(x = Mrec,y=MPre,group=class))  +
+    geom_line(aes(color=class))+
+    geom_point(aes(color=class))
+  p
+  
+  p = ggplot(Data_mAP,aes(x=Threshold,y=mAP))+geom_point(color='blue')
   p  
   
   

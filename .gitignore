@@ -18,3 +18,7 @@
 *.pic
 *.pyc
 *.tfrecords
+*.txt
+Original/
+Graph/
+Evaluate/*.csv
